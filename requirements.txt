@@ -1,1 +1,4 @@
 solara
+geopandas
+pandas
+matplotlib
