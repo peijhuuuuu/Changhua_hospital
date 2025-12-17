@@ -7,10 +7,10 @@ from matplotlib.offsetbox import DrawingArea, AnnotationBbox
 from matplotlib.patches import Wedge, Circle
 
 # 1. 讀取地圖 (底圖)
-townships = gpd.read_file(r"C:\Users\user\Downloads\changhua.geojson")
+townships = 'https://raw.githubusercontent.com/peijhuuuuu/Changhua_hospital/main/changhua.geojson' 
 
 # 2. 讀取並拆分 CSV (處理欄位擠在一起的問題)
-csv_path = r"C:\Users\user\Downloads\113年彰化縣醫療院所數.csv"
+csv_path = "https://raw.githubusercontent.com/peijhuuuuu/Changhua_hospital/main/113年彰化縣醫療院所數.csv"
 data_raw = pd.read_csv(csv_path, encoding="big5", header=None)
 data = data_raw[0].str.split(',', expand=True)
 data.columns = ['鄉鎮', '合計', '醫院數', '診所數']
@@ -43,8 +43,13 @@ ax.scatter(
     label='醫院+診所數量'
 )
 
+# 6. 安裝字體
+font_path = "https://raw.githubusercontent.com/peijhuuuuu/Changhua_hospital/main/NotoSansCJKtc-Regular.otf"
+fm.fontManager.addfont(font_path)
+prop = fm.FontProperties(fname=font_path)
+plt.rcParams['font.sans-serif'] = [prop.get_name()]
+
 # 7. 設定標題與字體
-plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei'] 
 plt.title('彰化縣各鄉鎮市醫療資源分布圖', fontsize=15)
 plt.axis('off') 
 
@@ -58,9 +63,8 @@ from matplotlib.offsetbox import DrawingArea, AnnotationBbox
 from matplotlib.patches import Wedge, Circle
 
 # 1. 讀取與清理資料
-townships = gpd.read_file(r"C:\Users\user\Downloads\changhua.geojson")
 # 讀取 CSV (假設第一列是標題，如果不是請調整 header)
-bed_data = pd.read_csv(r"C:\Users\user\Downloads\彰化縣病床數.csv")
+bed_data = "https://raw.githubusercontent.com/peijhuuuuu/Changhua_hospital/main/彰化縣病床數.csv"
 
 # 2. 合併資料
 merged = townships.merge(bed_data, left_on='townname', right_on='地區')
@@ -109,11 +113,7 @@ for _, row in merged.iterrows():
     # 傳入對應的欄位名稱
     add_donut(ax, x, y, row['一般病床'], row['特殊病床'])
 
-# 6. 安裝字體
-font_path = r"C:\Users\user\Downloads\NotoSansCJKtc-Regular.otf"
-fm.fontManager.addfont(font_path)
-prop = fm.FontProperties(fname=font_path)
-plt.rcParams['font.sans-serif'] = [prop.get_name()]
+
 
 # 7. 美化
 ax.set_axis_off()
