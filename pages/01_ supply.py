@@ -148,13 +148,12 @@ def Page():
         solara.Warning("資料載入失敗，請檢查 URL 或網路連線。", dense=True)
         return
 
-    # 將兩個圖表並排放置
     with solara.Columns(widths=[6, 6]):
         
-        # 顯示圖表一
+        # 顯示圖表一：將數據作為具名參數 'data' 傳遞
         with solara.Card(title="醫療資源分布 (醫院 + 診所數量)", elevation=2):
-            solara.FigureMatplotlib(plot_hospital_resource, merged_hospital)
+            solara.FigureMatplotlib(plot_hospital_resource, data=merged_hospital) 
         
-        # 顯示圖表二
+        # 顯示圖表二：將數據作為具名參數 'data' 傳遞
         with solara.Card(title="病床分佈 (圓環圖)", elevation=2):
-            solara.FigureMatplotlib(plot_bed_distribution, merged_bed)
+            solara.FigureMatplotlib(plot_bed_distribution, data=merged_bed)
