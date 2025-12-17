@@ -44,7 +44,7 @@ def load_and_prepare_data():
     merged_hospital['coords'] = merged_hospital['geometry'].apply(lambda x: x.representative_point().coords[0])
 
     # --- 處理病床數據 (圖表二所需) ---
-    bed_data_raw = pd.read_csv(CSV_BED_URL, encoding="big5")
+    bed_data_raw = pd.read_csv(CSV_BED_URL)
     
     # 將病床數欄位轉換為數字 (假設欄位名稱為 '一般病床', '特殊病床')
     # 這裡假設 bed_data_raw 已經是乾淨的 DataFrame 格式
