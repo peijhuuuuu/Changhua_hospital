@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 # -----------------------------------------------------------------
 # 🎯 步驟 1: 檔案路徑定義 (使用您的 GitHub Raw URL)
 # -----------------------------------------------------------------
-csv_path = 'https://raw.githubusercontent.com/peijhuuuuu/Changhua_hospital/main/彰化縣現住人口之年齡結構.csv'
+csv_path = 'https://raw.githubusercontent.com/peijhuuuuu/Changhua_hospital/main/age_population.csv'
 geojson_path = 'https://raw.githubusercontent.com/peijhuuuuu/Changhua_hospital/main/changhua.geojson' 
 # -----------------------------------------------------------------
 
