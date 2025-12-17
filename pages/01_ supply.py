@@ -153,8 +153,8 @@ def Page():
         
         # 顯示圖表一
         with solara.Card(title="醫療資源分布 (醫院 + 診所數量)", elevation=2):
-            solara.FigurePlot(plot_hospital_resource, merged_hospital)
+            solara.FigureMatplotlib(plot_hospital_resource, merged_hospital)
         
         # 顯示圖表二
         with solara.Card(title="病床分佈 (圓環圖)", elevation=2):
-            solara.FigurePlot(plot_bed_distribution, merged_bed)
+            solara.FigureMatplotlib(plot_bed_distribution, merged_bed)
