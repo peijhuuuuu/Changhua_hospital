@@ -2,3 +2,4 @@ solara
 geopandas
 pandas
 matplotlib
+mapclassify
