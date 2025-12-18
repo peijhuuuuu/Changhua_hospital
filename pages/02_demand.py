@@ -6,7 +6,7 @@ import numpy as np
 
 # --- 資料來源 (假設與 supply.py 使用相同的 GeoJSON) ---
 TOWNSHIPS_URL = 'https://raw.githubusercontent.com/peijhuuuuu/Changhua_hospital/main/changhua.geojson'
-CSV_POPULATION_URL = "https://raw.githubusercontent.com/peijhuuuuu/Changhua_hospital/main/changhua_population.csv" 
+CSV_POPULATION_URL = "https://raw.githubusercontent.com/peijhuuuuu/Changhua_hospital/main/age_population.csv" 
 # 假設這是您的 CSV 人口資料 URL
 
 # --- 數據載入和處理 ---
