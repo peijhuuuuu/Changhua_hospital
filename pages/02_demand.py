@@ -5,64 +5,70 @@ import matplotlib.pyplot as plt
 import requests
 import io
 
-# --- 資料來源 ---
+# --- 1. 資料路徑 (對應 Colab 的 URL 版本) ---
 TOWNSHIPS_URL = 'https://raw.githubusercontent.com/peijhuuuuu/Changhua_hospital/main/changhua.geojson'
 CSV_POPULATION_URL = "https://raw.githubusercontent.com/peijhuuuuu/Changhua_hospital/main/age_population.csv" 
 
 @solara.memoize
 def load_and_prepare_demand_data():
-    """載入人口資料並處理欄位名稱與資料類型。"""
+    """同步 Colab 邏輯：清理資料、處理數字逗號、男女加總、計算占比。"""
     try:
-        # 1. 讀取地圖
+        # 讀取地圖
         townships_gdf = gpd.read_file(TOWNSHIPS_URL)
         
-        # 2. 抓取 CSV (使用 requests 確保穩定性)
+        # 讀取 CSV (處理編碼)
         response = requests.get(CSV_POPULATION_URL)
         if response.status_code != 200:
             return None
-            
         try:
-            decoded_csv = response.content.decode('utf-8')
-        except UnicodeDecodeError:
-            decoded_csv = response.content.decode('cp950')
+            # 優先嘗試 Big5 (Colab 使用的編碼)
+            decoded_csv = response.content.decode('big5')
+        except:
+            # 如果失敗則嘗試 UTF-8
+            decoded_csv = response.content.decode('utf-8', errors='ignore')
             
         df = pd.read_csv(io.StringIO(decoded_csv))
         
-        # 3. 處理數值轉換 (將包含 '歲' 的欄位轉為數字，並移除可能存在的逗號)
-        age_cols = [col for col in df.columns if '歲' in col]
+        # --- [Colab 同步邏輯]：定義欄位 ---
+        TOWN_COL_CSV = '區域別'
+        TOWN_COL_GEO = 'townname' # 對應地圖檔的欄位名稱
+        
+        # 定義所有年齡層欄位
+        age_cols = [col for col in df.columns if '(人數)' in col]
+        
+        # --- [Colab 同步邏輯]：清除逗號並轉數值 ---
         for col in age_cols:
             df[col] = pd.to_numeric(
-                df[col].astype(str).str.replace(',', ''), 
+                df[col].astype(str).str.replace(',', '', regex=False).str.strip(), 
                 errors='coerce'
             ).fillna(0)
 
-        # 4. 資料加總 (將同一個區域的「男」、「女」人口合併計算)
-        # 使用您的 CSV 實際欄位名稱 '區域別'
-        population_df = df.groupby('區域別')[age_cols].sum().reset_index()
+        # --- [Colab 同步邏輯]：按「區域別」分組加總 (合併男、女資料) ---
+        # 這一步最關鍵，確保每個鄉鎮只有一列總計資料
+        population_summary = df.groupby(TOWN_COL_CSV)[age_cols].sum().reset_index()
 
-        # 5. 定義 65 歲以上欄位 (從欄位名稱如 '65-69歲' 中提取數字判定)
-        elderly_cols = []
-        for col in age_cols:
-            try:
-                # 提取第一個出現的數字
-                age_val = int(''.join(filter(str.isdigit, col.split('歲')[0])))
-                if age_val >= 65:
-                    elderly_cols.append(col)
-            except:
-                continue
+        # --- [Colab 同步邏輯]：篩選 65 歲以上欄位 ---
+        elderly_cols = [col for col in age_cols if int(col.split('歲')[0]) >= 65]
 
-        # 6. 計算各項指標
-        population_df['總人口數'] = population_df[age_cols].sum(axis=1)
-        population_df['65歲以上總數'] = population_df[elderly_cols].sum(axis=1)
-        # 避免除以 0 的錯誤
-        population_df['老年人口占比'] = (population_df['65歲以上總數'] / population_df['總人口數']).fillna(0) * 100
+        # --- [Colab 同步邏輯]：計算總人口與占比 ---
+        population_summary['總人口數'] = population_summary[age_cols].sum(axis=1)
+        population_summary['65歲以上總數'] = population_summary[elderly_cols].sum(axis=1)
         
-        # 7. 合併地圖與資料
-        townships_gdf['townname'] = townships_gdf['townname'].str.strip()
-        population_df['區域別'] = population_df['區域別'].str.strip()
+        # 計算最終占比 (%)
+        population_summary['老年人口占比'] = (
+            population_summary['65歲以上總數'] / population_summary['總人口數']
+        ) * 100
         
-        # 內對接：地圖的 'townname' 對應 CSV 的 '區域別'
-        gdf_merged = townships_gdf.merge(population_df, left_on='townname', right_on='區域別', how='inner')
+        # --- [Colab 同步邏輯]：數據合併 (Merge) ---
+        # 統一將 CSV 的「區域別」更名為與地圖一致的「townname」
+        population_summary = population_summary.rename(columns={TOWN_COL_CSV: TOWN_COL_GEO})
+        
+        # 清除名稱空白，確保合併成功
+        townships_gdf[TOWN_COL_GEO] = townships_gdf[TOWN_COL_GEO].str.strip()
+        population_summary[TOWN_COL_GEO] = population_summary[TOWN_COL_GEO].str.strip()
+        
+        # 執行合併
+        gdf_merged = townships_gdf.merge(population_summary, on=TOWN_COL_GEO, how='inner')
         
         return gdf_merged
 
@@ -71,45 +77,39 @@ def load_and_prepare_demand_data():
         return None
 
 def plot_elderly_ratio(data):
-    """繪製地圖函數"""
-    fig, ax = plt.subplots(1, 1, figsize=(10, 12))
+    """繪製面量圖 (同步 Colab 的 Reds 漸層與分級邏輯)"""
+    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
     
+    # 同步 Colab 參數：scheme='Quantiles', k=5, cmap='Reds'
     data.plot(
         column='老年人口占比',
         ax=ax,
         legend=True,
         cmap='Reds',
-        scheme='quantiles', # 需安裝 mapclassify
-        edgecolor='black',
-        linewidth=0.5,
-        legend_kwds={'loc': 'lower right', 'title': "老年人口比例 (%)"}
+        scheme='Quantiles', # 分五級
+        k=5,
+        edgecolor='0.8',
+        linewidth=0.8,
+        legend_kwds={'loc': 'lower right', 'title': "需求熱區 (占比 %)"}
     )
 
-    plt.title('彰化縣各鄉鎮老年人口佔比分布圖', fontsize=16, fontweight='bold')
+    plt.title('彰化縣老年人口占比分佈圖', fontsize=16, fontweight='bold')
     plt.axis('off')
     return fig
 
 @solara.component
 def Page():
-    # 載入與處理數據
     gdf_merged = load_and_prepare_demand_data()
 
     if gdf_merged is None or gdf_merged.empty:
-        solara.Error("資料載入或合併失敗！請檢查 CSV 內容與欄位名稱。", dense=True)
+        solara.Error("資料讀取或合併失敗，請確認 CSV 是否包含『區域別』及『(人數)』欄位。", dense=True)
         return
 
-    with solara.Card(title="彰化縣人口需求分析", elevation=4):
+    with solara.Card(title="彰化縣人口需求熱區 (同步 Colab 邏輯)", elevation=4):
         with solara.Column():
-            solara.Markdown("此地圖顯示彰化縣各行政區之 65 歲以上人口占比。")
-            
-            # 使用 solara.use_memo 產生圖表物件
             fig = solara.use_memo(lambda: plot_elderly_ratio(gdf_merged), [gdf_merged])
             solara.FigureMatplotlib(fig)
             
-            # 修正：將 solara.Expansion 改為 solara.Details
-            with solara.Details("查看各鄉鎮詳細數據清單"):
-                # 顯示排行前幾名的鄉鎮數據
-                display_df = gdf_merged[['區域別', '總人口數', '65歲以上總數', '老年人口占比']].sort_values('老年人口占比', ascending=False)
-                solara.DataFrame(display_df)
-
-# 執行指令: solara run 檔名.py
+            with solara.Details("查看詳細人口統計表"):
+                # 顯示表格方便檢查數據是否正確
+                solara.DataFrame(gdf_merged[['townname', '總人口數', '65歲以上總數', '老年人口占比']].sort_values('老年人口占比', ascending=False))
