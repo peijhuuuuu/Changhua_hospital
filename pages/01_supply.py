@@ -5,80 +5,62 @@ import matplotlib.pyplot as plt
 from matplotlib.offsetbox import DrawingArea, AnnotationBbox
 from matplotlib.patches import Wedge, Circle
 
-# --- 資料來源 (請確保這些 URL 是公開且有效的) ---
+# --- Data Sources ---
 TOWNSHIPS_URL = 'https://raw.githubusercontent.com/peijhuuuuu/Changhua_hospital/main/changhua.geojson'
 CSV_HOSPITAL_URL = "https://raw.githubusercontent.com/peijhuuuuu/Changhua_hospital/main/113hospital.csv"
 CSV_BED_URL = "https://raw.githubusercontent.com/peijhuuuuu/Changhua_hospital/main/changhua_bed.csv"
 
-# --- 數據載入和處理 (使用 solara.memoize 避免重複載入) ---
+# --- Data Loading and Preparation ---
 
 @solara.memoize
 def load_and_prepare_data():
-    """載入所有資料並進行初步處理和合併，返回兩個 GeoDataFrame。"""
-    
-    # 1. 讀取 GeoJSON 地圖 (修正：確保 townships_gdf 是 GeoDataFrame)
+    """Loads all data and performs initial processing."""
     try:
         townships_gdf = gpd.read_file(TOWNSHIPS_URL)
     except Exception as e:
         print(f"Error loading GeoJSON: {e}")
         return None, None 
 
-    # --- 處理醫療資源數據 (圖表一所需) ---
+    # --- Hospital Resource Data ---
+    # Note: Use 'cp950' for many Taiwan government CSVs if 'big5' or 'utf-8' fails
     hospital_data_raw = pd.read_csv(CSV_HOSPITAL_URL, encoding="big5", header=None)
-    
-    # 讀取 CSV 時欄位擠在一起的處理
     hospital_data = hospital_data_raw[0].str.split(',', expand=True)
     hospital_data.columns = ['鄉鎮', '合計', '醫院數', '診所數']
-    
-    # 資料清理與型態轉換
-    hospital_data = hospital_data[hospital_data['鄉鎮'] != '鄉鎮'] # 剔除標題列
+    hospital_data = hospital_data[hospital_data['鄉鎮'] != '鄉鎮'] 
     hospital_data['合計'] = pd.to_numeric(hospital_data['合計'], errors='coerce')
 
-    # 合併圖表一數據
     merged_hospital = townships_gdf.merge(hospital_data, left_on='townname', right_on='鄉鎮', how='inner')
     merged_hospital['coords'] = merged_hospital['geometry'].apply(lambda x: x.representative_point().coords[0])
 
-    # --- 處理病床數據 (圖表二所需) ---
-    # 修正編碼錯誤：將 big5 替換為 utf-8 (或其他正確編碼)
+    # --- Bed Data ---
     bed_data_raw = pd.read_csv(CSV_BED_URL, encoding="utf-8")
-    
-    # 確保欄位名稱正確
-    bed_data = bed_data_raw
+    bed_data = bed_data_raw.copy()
     bed_data['一般病床'] = pd.to_numeric(bed_data['一般病床'], errors='coerce').fillna(0)
     bed_data['特殊病床'] = pd.to_numeric(bed_data['特殊病床'], errors='coerce').fillna(0)
 
-    # 合併圖表二數據
     merged_bed = townships_gdf.merge(bed_data, left_on='townname', right_on='地區', how='inner')
 
     return merged_hospital, merged_bed
 
-# --- 繪圖函數 ---
+# --- Plotting Functions ---
 
-# 圖表一：醫療資源分布圖 (分級符號圖)
-# 修正參數名稱為 'data'
 def plot_hospital_resource(data):
     fig, ax = plt.subplots(1, 1, figsize=(10, 12))
-
-    # 畫彰化縣底圖
     data.plot(ax=ax, color="#ffafaf", edgecolor="#000000", linewidth=1)
 
-    # 畫分級符號 (圓圈)
     ax.scatter(
         [c[0] for c in data['coords']], 
         [c[1] for c in data['coords']], 
-        s=data['合計'] * 15, # 15 是縮放倍率
+        s=data['合計'] * 15, 
         color='blue', 
         alpha=0.6, 
         edgecolor='white',
         label='醫院+診所數量'
     )
-
     plt.title('彰化縣各鄉鎮市醫療資源分布圖', fontsize=15)
     plt.axis('off') 
     return fig
 
-# 圖表二：病床分佈圖 (圓環圖)
-# 定義繪製圓環圖的函數
 def add_donut(ax, x, y, val1, val2, scale=1.0):
     total = val1 + val2
     if total <= 0: return
@@ -89,10 +71,8 @@ def add_donut(ax, x, y, val1, val2, scale=1.0):
     radius = base_size / 2
     
     p1 = (val1 / total) * 360
-    
-    w1 = Wedge((center, center), radius, 0, p1, color='#a93226') # 一般病床 (深紅)
-    w2 = Wedge((center, center), radius, p1, 360, color='#f1c40f') # 特殊病床 (黃)
-    
+    w1 = Wedge((center, center), radius, 0, p1, color='#a93226') 
+    w2 = Wedge((center, center), radius, p1, 360, color='#f1c40f') 
     center_circle = Circle((center, center), radius * 0.4, color='white')
     
     da.add_artist(w1)
@@ -102,49 +82,42 @@ def add_donut(ax, x, y, val1, val2, scale=1.0):
     ab = AnnotationBbox(da, (x, y), frameon=False, pad=0)
     ax.add_artist(ab)
 
-# 修正參數名稱為 'data'
 def plot_bed_distribution(data):
     fig, ax = plt.subplots(figsize=(12, 12))
-
-    # 繪製行政區底圖
     data.plot(ax=ax, color="#9affa7", edgecolor="#000000", linewidth=0.5)
 
-    # 走訪合併後的 GeoDataFrame 繪製圖表
     for _, row in data.iterrows():
         centroid = row.geometry.centroid
-        x, y = centroid.x, centroid.y
-        
-        # 傳入對應的欄位名稱
-        # 這裡假設 bed_data_raw 的欄位名是 '一般病床' 和 '特殊病床'
-        add_donut(ax, x, y, row['一般病床'], row['特殊病床'])
+        add_donut(ax, centroid.x, centroid.y, row['一般病床'], row['特殊病床'])
 
     ax.set_axis_off()
     plt.title("彰化縣各行政區病床分佈圖", fontsize=18, fontweight='bold')
-
-    # 添加簡單圖例說明
     plt.text(0.1, 0.1, "■ 一般病床", color='#a93226', transform=ax.transAxes, fontsize=12)
     plt.text(0.1, 0.07, "■ 特殊病床", color='#f1c40f', transform=ax.transAxes, fontsize=12)
-
     plt.tight_layout()
     return fig
 
-# --- Solara 應用程式組件 ---
+# --- Solara Application Component ---
 
 @solara.component
 def Page():
-    # 載入數據
+    # 1. Load Data
     merged_hospital, merged_bed = load_and_prepare_data()
 
     if merged_hospital is None or merged_bed is None:
-        solara.Warning("資料載入失敗，請檢查 GeoJSON URL 或網路連線。", dense=True)
+        solara.Warning("資料載入失敗，請檢查資料來源與網路連線。", dense=True)
         return
 
+    # 2. Use Memo to create the Figure objects (prevents redundant plotting)
+    fig_hospital = solara.use_memo(lambda: plot_hospital_resource(merged_hospital), [merged_hospital])
+    fig_bed = solara.use_memo(lambda: plot_bed_distribution(merged_bed), [merged_bed])
+
+    # 3. Render the UI
     with solara.Columns(widths=[6, 6]):
-        
-        # 顯示圖表一：修正為 solara.FigureMatplotlib，並使用具名參數 data=
         with solara.Card(title="醫療資源分布 (醫院 + 診所數量)", elevation=2):
-            solara.FigureMatplotlib(plot_hospital_resource, data=merged_hospital)
+            solara.FigureMatplotlib(fig_hospital)
         
-        # 顯示圖表二：修正為 solara.FigureMatplotlib，並使用具名參數 data=
         with solara.Card(title="病床分佈 (圓環圖)", elevation=2):
-            solara.FigureMatplotlib(plot_bed_distribution, data=merged_bed)
+            solara.FigureMatplotlib(fig_bed)
+
+# To run: solara run your_filename.py
