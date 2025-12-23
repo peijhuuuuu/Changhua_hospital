@@ -71,7 +71,7 @@ def load_and_prepare_data():
 
     return merged_hospital, merged_bed
 
-# --- 4. 繪圖函數 (字體已調大) ---
+# --- 4. 繪圖函數  ---
 
 def plot_hospital_resource(data):
     fig, ax = plt.subplots(1, 1, figsize=(10, 12))
@@ -80,13 +80,13 @@ def plot_hospital_resource(data):
     ax.scatter(
         [c[0] for c in data['coords']], 
         [c[1] for c in data['coords']], 
-        s=data['合計'] * 25, # 調大圓點尺寸
+        s=data['合計'] * 20, # 調大圓點尺寸
         color='blue', 
         alpha=0.6, 
         edgecolor='white',
     )
     # 調大標題字體 (15 -> 22)
-    plt.title('彰化縣各鄉鎮市醫療資源分布圖', fontsize=22, fontproperties=custom_font, pad=20)
+    plt.title('彰化縣各鄉鎮市醫療資源分布圖', fontsize=30, fontproperties=custom_font, pad=20)
     plt.axis('off') 
     return fig
 
@@ -122,7 +122,7 @@ def plot_bed_distribution(data):
 
     ax.set_axis_off()
     # 調大標題字體 (18 -> 26)
-    plt.title("彰化縣各行政區病床分佈圖", fontsize=26, fontweight='bold', fontproperties=custom_font, pad=20)
+    plt.title("彰化縣各行政區病床分佈圖", fontsize=30, fontweight='bold', fontproperties=custom_font, pad=20)
     
     # 調大圖例文字 (12 -> 18)
     ax.text(0.05, 0.12, "■ 一般病床", color='#a93226', transform=ax.transAxes, fontsize=18, fontproperties=custom_font)
