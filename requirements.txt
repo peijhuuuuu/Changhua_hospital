@@ -2,5 +2,6 @@ solara
 geopandas
 pandas
 matplotlib
+requests
 mapclassify
 Pillow
